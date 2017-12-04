@@ -23,9 +23,20 @@ class session:
     """
     Basic class for session
     """
-    def __init__(self, data, condition):
+    def __init__(self, data, condition, time):
         self.BOLD = data
         self.condition_ID = condition
+        self.time = time
+
+
+class classification:
+    """
+    Basic class to collect everything related to a classification
+    e.g. scores over sessions, subjects, etc., confusion matrix, features,
+    etc., etc.
+    """
+    def __init__(self, name):
+        self.name = "Something to tell what you are classifying"
 
 
 class test_retest_dataset:
@@ -33,7 +44,7 @@ class test_retest_dataset:
     Basic class for test-retest dataset.
     """
 
-    def __init__(self, BOLD_ts, conditions=None, SC=None):
+    def __init__(self, BOLD_ts, conditions=None, SC=None, time=None):
         self.n_subjects = np.shape(BOLD_ts)[0]
         self.n_sessions = np.shape(BOLD_ts)[1]
         self.n_ROIs = np.shape(BOLD_ts)[2]
@@ -46,7 +57,14 @@ class test_retest_dataset:
                     cond = 1
                 elif isinstance(conditions, (list, np.ndarray)):
                     cond = conditions[ss]
-                self.subjects[sb].sessions.append(session(BOLD_ts[sb, ss, :, :], condition=cond))
+                elif type(conditions) is dict:
+                    # TODO: implement this!
+                    raise ValueError("Sorry dictionary is not yet supported.")
+                else:
+                    raise ValueError("conditions has to be a list",
+                                     "or numpy array.")
+                # TODO: add same tests for time
+                self.subjects[sb].sessions.append(session(BOLD_ts[sb, ss, :, :], condition=cond), time=time)
 
     def estimate_EC(self, subjects, sessions, norm_fc=None):
         # TODO: modify to produce fitting graphics in a separate folder
@@ -61,12 +79,61 @@ class test_retest_dataset:
                 self.subjects[sb].sessions[ss].Sigma = S
                 self.subjects[sb].sessions[ss].tau_x = tau_x
                 self.subjects[sb].sessions[ss].model_fit = d_fit
-            
-    def estimate_FC(self, subjects, sessions):
+
+    def estimate_FC(self, subjects=None, sessions=None):
+        if subjects is None:
+            subjects = range(self.n_subjects)
+        if sessions is None:
+            sessions = range(self.n_sessions)
+        for sb in subjects:
+            for ss in sessions:
+                BOLD_ts = self.subjects[sb].sessions[ss].BOLD
+                FC = np.corrcoef(BOLD_ts)
+                self.subjects[sb].sessions[ss].FC = FC
+
+    def classify_over_sessions(self):
+        return 0
+
+    def classify_over_subjects(self):
+        return 0
+
+    def classify_over_time(self):
+        return 0
+
+    def confusion_matrix(self):
+        return 0
+
+    def extract_features(self):
+        return 0
+
+    def minimal_VS_random(self):
+        return 0
+
+    def minimalBest_VS_minimalWorst(self):
         return 0
 
 
-def calc_mean_FC(self):
+def split_train_test_same(X, y, train_size=0.8):
+    """
+    Split data in train and test keeping the approximate proportion of
+    samples for each class
+    """
+    # TODO: move to utils
+    train_idx = 0
+    test_idx = 0
+    return train_idx, test_idx
+
+
+def crossvalidate_clf(X, y):
+    # TODO: move to utils
+    # for repetitions
+        # split_train_test_same()
+        # fit clf on train
+        # predict on test
+    return 0
+
+
+def calc_mean_FC():
     # TODO: move to utils
     return 0
 

@@ -12,6 +12,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class subject:
@@ -40,8 +42,28 @@ class classification:
     e.g. scores over sessions, subjects, etc., confusion matrix, features,
     etc., etc.
     """
-    def __init__(self, name):
-        self.name = "Something to tell what you are classifying"
+    def __init__(self, target_name, features_name, y, X):
+        self.target_name = target_name
+        self.features_name = features_name
+        self.y = y
+        self.X = X
+
+    def classify_over_sessions(self, n_sessions, repetitions=10):
+        """
+        """
+        self.score = np.zeros([len(n_sessions), repetitions])
+        for s, ses in enumerate(n_sessions):
+            self.score[s, :] = crossvalidate_clf(self.X, self.y,
+                                                 train_size=ses,
+                                                 repetitions=repetitions)
+        plt.figure()
+        plt.fill_between(n_sessions,
+                         self.score.mean(axis=1) + self.score.std(axis=1),
+                         self.score.mean(axis=1) - self.score.std(axis=1),
+                         alpha=0.5)
+        plt.plot(n_sessions, self.score.mean(axis=1))
+        plt.xlabel('# sessions')
+        plt.ylabel('CV score')
 
 
 class test_retest_dataset:
@@ -96,13 +118,28 @@ class test_retest_dataset:
                 FC = np.corrcoef(BOLD_ts)
                 self.subjects[sb].sessions[ss].FC = FC
 
-    def classify_over_sessions(self):
-        return 0
+    def classify_over_sessions(self, X, y, n_sessions, repetitions=10):
+        """
+        """
+        score = np.zeros([len(n_sessions), repetitions])
+        for s, ses in enumerate(n_sessions):
+            score[s, :] = crossvalidate_clf(X, y, train_size=ses,
+                                             repetitions=repetitions)
+        plt.figure()
+        plt.fill_between(n_sessions, score.mean(axis=1)+score.std(axis=1),
+                          score.mean(axis=1)-score.std(axis=1),
+                          alpha=0.5)
+        plt.plot(n_sessions, score.mean(axis=1))
+        plt.xlabel('# sessions')
+        plt.ylabel('CV score')
 
     def classify_over_subjects(self):
         return 0
 
     def classify_over_time(self):
+        return 0
+
+    def compare_classifiers(self):
         return 0
 
     def confusion_matrix(self):
@@ -191,6 +228,7 @@ def calc_mean_FC():
 ts_emp = np.load('/home/andrea/Work/matt_movie_scripts/EC_estimation/rest_movie_ts.npy')
 movie = test_retest_dataset(ts_emp, conditions=[0, 0, 1, 1])
 movie.estimate_FC()
-X = movie.make_data_matrix()
-y = movie.make_target_subjects()
-s = crossvalidate_clf(X, y, train_size=22)
+movie.subject_classif = classification('subejcts', 'FC',
+                                       movie.make_target_subjects(),
+                                       movie.make_data_matrix())
+movie.subject_classif.classify_over_sessions(n_sessions=[22, 44, 66])

@@ -42,7 +42,11 @@ class classification:
     e.g. scores over sessions, subjects, etc., confusion matrix, features,
     etc., etc.
     """
-    def __init__(self, target_name, features_name, y, X):
+    def __init__(self, target_name, features_name, y=None, X=None):
+        """
+        If X and y are not provided they are initialized to None and their
+        value should be changed before actually running any classification.
+        """
         self.target_name = target_name
         self.features_name = features_name
         self.y = y
@@ -56,6 +60,7 @@ class classification:
             self.score[s, :] = crossvalidate_clf(self.X, self.y,
                                                  train_size=ses,
                                                  repetitions=repetitions)
+        # TODO: probably write a function to make the plot
         plt.figure()
         plt.fill_between(n_sessions,
                          self.score.mean(axis=1) + self.score.std(axis=1),
@@ -65,10 +70,33 @@ class classification:
         plt.xlabel('# sessions')
         plt.ylabel('CV score')
 
+    def classify_over_subjects(self):
+        return 0
+
+    def classify_over_time(self):
+        return 0
+
+    def compare_classifiers(self):
+        return 0
+
+    def confusion_matrix(self):
+        return 0
+
+    def extract_features(self):
+        return 0
+
+    def minimal_VS_random(self):
+        return 0
+
+    def minimalBest_VS_minimalWorst(self):
+        return 0
+
 
 class test_retest_dataset:
     """
     Basic class for test-retest dataset.
+    You can estimate EC or FC and calculate
+    other stuff useful for classification.
     """
 
     def __init__(self, BOLD_ts, conditions=None, SC=None, time=None):
@@ -118,42 +146,6 @@ class test_retest_dataset:
                 FC = np.corrcoef(BOLD_ts)
                 self.subjects[sb].sessions[ss].FC = FC
 
-    def classify_over_sessions(self, X, y, n_sessions, repetitions=10):
-        """
-        """
-        score = np.zeros([len(n_sessions), repetitions])
-        for s, ses in enumerate(n_sessions):
-            score[s, :] = crossvalidate_clf(X, y, train_size=ses,
-                                             repetitions=repetitions)
-        plt.figure()
-        plt.fill_between(n_sessions, score.mean(axis=1)+score.std(axis=1),
-                          score.mean(axis=1)-score.std(axis=1),
-                          alpha=0.5)
-        plt.plot(n_sessions, score.mean(axis=1))
-        plt.xlabel('# sessions')
-        plt.ylabel('CV score')
-
-    def classify_over_subjects(self):
-        return 0
-
-    def classify_over_time(self):
-        return 0
-
-    def compare_classifiers(self):
-        return 0
-
-    def confusion_matrix(self):
-        return 0
-
-    def extract_features(self):
-        return 0
-
-    def minimal_VS_random(self):
-        return 0
-
-    def minimalBest_VS_minimalWorst(self):
-        return 0
-
     def make_data_matrix(self, subjects=None, sessions=None, C='FC'):
         # move to utils
         """
@@ -179,7 +171,7 @@ class test_retest_dataset:
         return X
 
     def make_target_subjects(self, subjects=None, sessions=None):
-        # move to utils
+        # TODO: move to utils (?)
         """
         Builds a target vector y with subjects ID to classify subjects.
         """
@@ -195,9 +187,27 @@ class test_retest_dataset:
                     i += 1
         return y
 
+    def make_target_conditions(self, subjects=None, sessions=None):
+        # TODO: move to utils (?)
+        """
+        Builds a target vector y with conditions ID to classify conditions.
+        """
+        if subjects is None:
+            subjects = range(self.n_subjects)
+        if sessions is None:
+            sessions = range(self.n_sessions)
+        y = np.zeros([len(subjects)*len(sessions)])
+        i = 0
+        for sb in subjects:
+                for ss in sessions:
+                    y[i] = self.subjects[sb].sessions[ss].condition_ID
+                    i += 1
+        return y
+
 
 def crossvalidate_clf(X, y, train_size, repetitions=10):
     # TODO: move to utils
+    # TODO: let choose the classifier
     clf = LogisticRegression(C=10000, penalty='l2',
                              multi_class='multinomial',
                              solver='lbfgs')
@@ -228,7 +238,12 @@ def calc_mean_FC():
 ts_emp = np.load('/home/andrea/Work/matt_movie_scripts/EC_estimation/rest_movie_ts.npy')
 movie = test_retest_dataset(ts_emp, conditions=[0, 0, 1, 1])
 movie.estimate_FC()
+#movie.estimate_EC()
 movie.subject_classif = classification('subejcts', 'FC',
                                        movie.make_target_subjects(),
                                        movie.make_data_matrix())
 movie.subject_classif.classify_over_sessions(n_sessions=[22, 44, 66])
+movie.condition_classif = classification('conditions', 'FC',
+                                         movie.make_target_conditions(),
+                                         movie.make_data_matrix())
+movie.condition_classif.classify_over_sessions(n_sessions=[4, 10, 22, 66])

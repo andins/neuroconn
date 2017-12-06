@@ -17,6 +17,10 @@ import seaborn as sns
 
 
 class subject:
+    # TODO: remove SC from here and use just one global SC
+    # extension to individual SC is not trivial (different number
+    # of features for classification for each subject: how do
+    # we treat them?)
     """
     Basic class for subject
     """
@@ -166,6 +170,14 @@ class test_retest_dataset:
                     X[i, :] = self.subjects[sb].sessions[ss].FC[idxs]
                     i += 1
         # TODO implement test for EC
+        elif C is 'EC':
+            num_non_zero = np.sum(self.subjects[0].SC)
+            X = np.zeros([len(subjects)*len(sessions), num_non_zero])
+            i = 0
+            for sb in subjects:
+                for ss in sessions:
+                    X[i, :] = self.subjects[sb].sessions[ss].EC[self.subjects[sb].SC]
+                    i += 1
         else:
             raise ValueError("C has to be either FC or EC.")
         return X

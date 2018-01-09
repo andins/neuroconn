@@ -14,19 +14,15 @@ from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.io import loadmat
 
 
 class subject:
-    # TODO: remove SC from here and use just one global SC
-    # extension to individual SC is not trivial (different number
-    # of features for classification for each subject: how do
-    # we treat them?)
     """
     Basic class for subject
     """
     def __init__(self, ID, SC=None):
         self.sessions = list()
-        self.SC = SC
         self.ID = ID
 
 
@@ -59,23 +55,47 @@ class classification:
     def classify_over_sessions(self, n_sessions, repetitions=10):
         """
         """
-        self.score = np.zeros([len(n_sessions), repetitions])
+        self.score_over_sessions = np.zeros([len(n_sessions), repetitions])
         for s, ses in enumerate(n_sessions):
-            self.score[s, :] = crossvalidate_clf(self.X, self.y,
+            self.score_over_sessions[s, :] = crossvalidate_clf(self.X, self.y,
                                                  train_size=ses,
                                                  repetitions=repetitions)
         # TODO: probably write a function to make the plot
         plt.figure()
         plt.fill_between(n_sessions,
-                         self.score.mean(axis=1) + self.score.std(axis=1),
-                         self.score.mean(axis=1) - self.score.std(axis=1),
+                         self.score_over_sessions.mean(axis=1) +
+                                                      self.score_over_sessions.std(axis=1),
+                         self.score_over_sessions.mean(axis=1) -
+                                                      self.score_over_sessions.std(axis=1),
                          alpha=0.5)
-        plt.plot(n_sessions, self.score.mean(axis=1))
+        plt.plot(n_sessions, self.score_over_sessions.mean(axis=1))
         plt.xlabel('# sessions')
         plt.ylabel('CV score')
 
-    def classify_over_subjects(self):
-        return 0
+    def classify_over_subjects(self, n_subjects, repetitions=10):
+        """
+        """
+        self.score_over_subjects = np.zeros([len(n_subjects), repetitions])
+        for s, sub in enumerate(n_subjects):
+            subj_labels = np.unique(self.y)
+            for r in range(repetitions):                
+                np.random.shuffle(subj_labels)
+                indxs = subj_labels[0:sub]
+                newy = [self.y[self.y==indxs[i]] for i in range(len(indxs))]
+                newX = [self.X[self.y==indxs[i], :] for i in range(len(indxs))]  # TODO: there's an error here
+                self.score_over_subjects[s, r] = crossvalidate_clf(newX, newy,
+                                                 train_size=sub,
+                                                 repetitions=1)
+        plt.figure()
+        plt.fill_between(n_subjects,
+                         self.score_over_subjects.mean(axis=1) +
+                                                      self.score_over_subjects.std(axis=1),
+                         self.score_over_subjects.mean(axis=1) -
+                                                      self.score_over_subjects.std(axis=1),
+                         alpha=0.5)
+        plt.plot(n_subjects, self.score_over_subjects.mean(axis=1))
+        plt.xlabel('# subjects')
+        plt.ylabel('CV score')
 
     def classify_over_time(self):
         return 0
@@ -108,6 +128,7 @@ class test_retest_dataset:
         self.n_sessions = np.shape(BOLD_ts)[1]
         self.n_ROIs = np.shape(BOLD_ts)[2]
         self.n_time_samples = np.shape(BOLD_ts)[3]
+        self.SC = SC
         self.subjects = list()
         for sb in range(self.n_subjects):
             self.subjects.append(subject(sb))
@@ -125,19 +146,29 @@ class test_retest_dataset:
                 # TODO: add same tests for time
                 self.subjects[sb].sessions.append(session(BOLD_ts[sb, ss, :, :], condition=cond, time=time))
 
-    def estimate_EC(self, subjects, sessions, norm_fc=None):
+    def estimate_EC(self, subjects, sessions, norm_fc=None, saved=False):
         # TODO: modify to produce fitting graphics in a separate folder
         #       if required
+        if saved is not False:
+            # TODO: change these two lines toallow the more general case of i
+            # having the EC directly saved as a numpy array
+            mat = loadmat(saved)
+            ec = np.ravel(mat['EC'])
         for sb in subjects:
             for ss in sessions:
-                BOLD_ts = self.subjects[sb].sessions[ss].BOLD
-                SC = self.subjects[sb].SC
-                EC, S, tau_x, d_fit = MOU_Lyapunov(ts_emp=BOLD_ts,
-                                                   SC_mask=SC, norm_fc=norm_fc)
-                self.subjects[sb].sessions[ss].EC = EC
-                self.subjects[sb].sessions[ss].Sigma = S
-                self.subjects[sb].sessions[ss].tau_x = tau_x
-                self.subjects[sb].sessions[ss].model_fit = d_fit
+                if saved is False:
+                    BOLD_ts = self.subjects[sb].sessions[ss].BOLD
+                    SC = self.SC
+                    EC, S, tau_x, d_fit = MOU_Lyapunov(ts_emp=BOLD_ts,
+                                                       SC_mask=SC, norm_fc=norm_fc)
+                    self.subjects[sb].sessions[ss].Sigma = S
+                    self.subjects[sb].sessions[ss].tau_x = tau_x
+                    self.subjects[sb].sessions[ss].model_fit = d_fit
+                    self.subjects[sb].sessions[ss].EC = EC
+                else:
+                    EC = np.zeros([self.n_ROIs, self.n_ROIs])
+                    EC[self.SC] = ec[sb][ss]
+                    self.subjects[sb].sessions[ss].EC = EC
 
     def estimate_FC(self, subjects=None, sessions=None):
         if subjects is None:
@@ -171,12 +202,12 @@ class test_retest_dataset:
                     i += 1
         # TODO implement test for EC
         elif C is 'EC':
-            num_non_zero = np.sum(self.subjects[0].SC)
+            num_non_zero = np.sum(self.SC)
             X = np.zeros([len(subjects)*len(sessions), num_non_zero])
             i = 0
             for sb in subjects:
                 for ss in sessions:
-                    X[i, :] = self.subjects[sb].sessions[ss].EC[self.subjects[sb].SC]
+                    X[i, :] = self.subjects[sb].sessions[ss].EC[self.SC]
                     i += 1
         else:
             raise ValueError("C has to be either FC or EC.")
@@ -223,8 +254,7 @@ def crossvalidate_clf(X, y, train_size, repetitions=10):
     clf = LogisticRegression(C=10000, penalty='l2',
                              multi_class='multinomial',
                              solver='lbfgs')
-    pipe = Pipeline([('pca', PCA()),
-                     ('clf', clf)])
+    pipe = Pipeline([('clf', clf)])
     scores = np.zeros([repetitions])
     sss = StratifiedShuffleSplit(n_splits=repetitions, test_size=None,
                                  train_size=train_size, random_state=0)
@@ -247,15 +277,15 @@ def calc_mean_FC():
     return 0
 
 
-ts_emp = np.load('/home/andrea/Work/matt_movie_scripts/EC_estimation/rest_movie_ts.npy')
-movie = test_retest_dataset(ts_emp, conditions=[0, 0, 1, 1])
-movie.estimate_FC()
-#movie.estimate_EC()
-movie.subject_classif = classification('subejcts', 'FC',
-                                       movie.make_target_subjects(),
-                                       movie.make_data_matrix())
-movie.subject_classif.classify_over_sessions(n_sessions=[22, 44, 66])
-movie.condition_classif = classification('conditions', 'FC',
-                                         movie.make_target_conditions(),
-                                         movie.make_data_matrix())
-movie.condition_classif.classify_over_sessions(n_sessions=[4, 10, 22, 66])
+#ts_emp = np.load('/home/andrea/Work/matt_movie_scripts/EC_estimation/rest_movie_ts.npy')    
+#movie = test_retest_dataset(ts_emp, conditions=[0, 0, 1, 1])
+#movie.estimate_FC()
+##movie.estimate_EC()
+#movie.subject_classif = classification('subejcts', 'FC',
+#                                       movie.make_target_subjects(),
+#                                       movie.make_data_matrix())
+#movie.subject_classif.classify_over_sessions(n_sessions=[22, 44, 66])
+#movie.condition_classif = classification('conditions', 'FC',
+#                                         movie.make_target_conditions(),
+#                                         movie.make_data_matrix())
+#movie.condition_classif.classify_over_sessions(n_sessions=[4, 10, 22, 66])

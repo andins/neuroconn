@@ -74,15 +74,26 @@ class classification:
 
     def classify_over_subjects(self, n_subjects, repetitions=10):
         """
+        Performs classification with a subset of subjects, e.g. to investigate the relationship between
+        number of subjects and classification performance.
+        Nothing is returned but a property is created in the classification object to store the classification score.
+        A figure is produced that represents the classification score as a function of the number of subjects.
+        PARAMETERS:
+            n_subjects is a list-like object with the number of subject to include in the classification.
+            repetitions is an integer that controls the number of times that the classification is repeated
+            for each element in n_subjects. New random subjects and sessions are drawn at each repetition.
         """
         self.score_over_subjects = np.zeros([len(n_subjects), repetitions])
         for s, sub in enumerate(n_subjects):
-            subj_labels = np.unique(self.y)
+            subj_labels = np.unique(self.y)  # get labels of the subjects
             for r in range(repetitions):                
-                np.random.shuffle(subj_labels)
-                indxs = subj_labels[0:sub]
-                newy = [self.y[self.y==indxs[i]] for i in range(len(indxs))]
-                newX = [self.X[self.y==indxs[i], :] for i in range(len(indxs))]  # TODO: there's an error here
+                np.random.shuffle(subj_labels)  # shuffle labels
+                indxs = subj_labels[0:sub]  # and take first sub labels (this way we get sub random labels)
+                idxx = np.zeros(np.shape(self.y), dtype=bool)  # initial 0 index vector
+                for i in range(len(indxs)):  # for each subject included in the classification
+                    idxx += self.y==indxs[i]  # idxx will be True for each session corresponding to each subject in indxs
+                newy = self.y[idxx]  # create a new y for the classification with a subset of subjects
+                newX = self.X[idxx, :]  # and a new X
                 self.score_over_subjects[s, r] = crossvalidate_clf(newX, newy,
                                                  train_size=sub,
                                                  repetitions=1)
@@ -248,7 +259,7 @@ class test_retest_dataset:
         return y
 
 
-def crossvalidate_clf(X, y, train_size, repetitions=10):
+def crossvalidate_clf(X, y, train_size, repetitions=10, random_state=None):
     # TODO: move to utils
     # TODO: let choose the classifier
     clf = LogisticRegression(C=10000, penalty='l2',
@@ -257,7 +268,7 @@ def crossvalidate_clf(X, y, train_size, repetitions=10):
     pipe = Pipeline([('clf', clf)])
     scores = np.zeros([repetitions])
     sss = StratifiedShuffleSplit(n_splits=repetitions, test_size=None,
-                                 train_size=train_size, random_state=0)
+                                 train_size=train_size, random_state=random_state)
     r = 0  # repetitions index
     for train_idx, test_idx in sss.split(X, y):
         data_train = X[train_idx, :]

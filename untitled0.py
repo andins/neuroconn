@@ -12,9 +12,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
+from sklearn.feature_selection import RFE
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.io import loadmat
+import pickle
 
 
 class subject:
@@ -83,6 +85,8 @@ class classification:
             repetitions is an integer that controls the number of times that the classification is repeated
             for each element in n_subjects. New random subjects and sessions are drawn at each repetition.
         """
+        # TODO: add the possibility to extract features for each subset of subjects
+        
         self.score_over_subjects = np.zeros([len(n_subjects), repetitions])
         for s, sub in enumerate(n_subjects):
             subj_labels = np.unique(self.y)  # get labels of the subjects
@@ -117,14 +121,71 @@ class classification:
     def confusion_matrix(self):
         return 0
 
-    def extract_features(self):
-        return 0
+    def rank_features(self, saved=False):
+        # Rank each feature in the classification using RFE
+        # TODO: save and recalc are just to import rankings calculated outside the object
+        # the way to save it is directly saving the TRD object: clean up!
+        if saved is False:
+            mlr = LogisticRegression(C=10000, penalty='l2', multi_class= 'multinomial', solver='lbfgs')
+            rfe = RFE(estimator=mlr, n_features_to_select=1, step=1)
+            rfe.fit(self.X, self.y)
+            self.ranking = rfe.ranking_
+        else:
+            rfe = pickle.load(open(saved, "rb"))
+            self.ranking = rfe.ranking_ 
+    
+    def extract_features(self, X, y, repetitions=10, wdw_l=2, tol=0.001, start_with=1, stop_after=50, step=1, fig=True):
+        # This function need a ranking to be already calculated with
+        # function rank_features.
+        # INPUT:
+        # X: data
+        # y: target
+        # window_length of rolling average
+        # tolerance for considering the derivative equal to zero
+        # start_with: integer determines the starting number of features
+        # stop_after: integer to limit the number of features used for a fast inspection (in case many features are needed)
+        # step : how many feature to add at each step
+        # fig: boolean to plot a figure
+        # TODO: add check for ranking
+        # TODO: use X and y of the classification object
+        
+        features2add = np.arange(start_with, stop_after+1, step)
+        rfe_scores = np.zeros([len(features2add), repetitions])
+        smoothed_scores = np.zeros([len(features2add), repetitions])
+        
+        for n, nf in enumerate(features2add):  # add features starting from 1 in the order of the ranking and calculate the classification score
+            # only calculates performance and updates the number of features if 
+            # performance has not yet saturated (deriv < tol in previous step)
+            if n<3 or abs(np.gradient(smoothed_scores[0:n])[n-1])>tol:
+                subset_feat = self.ranking<=nf
+                rfe_scores[n,:] = self.minimal_model_performance(X, y, subset_feat, repetitions=10)
+                # smooth scores with a rolling average to get rid of spurious peaks
+                smoothed_scores = np.convolve(rfe_scores.mean(axis=1), np.ones((wdw_l,))/wdw_l, mode='same')
+                rfe_num_feat = nf
+            else:
+                break
 
-    def minimal_VS_random(self):
-        return 0
+        if nf==features2add[-1]:
+            print("Warning: performance may have not converged: set stop_after to a higher value to explore more features")
 
-    def minimalBest_VS_minimalWorst(self):
-        return 0
+        rfe_scores = np.delete(rfe_scores, np.arange(n+1,rfe_scores.shape[0]), axis=0)
+        if fig:
+            plt.figure()
+            plt.errorbar(features2add[0:rfe_num_feat],
+                         np.mean(rfe_scores, axis=1),
+                         np.std(rfe_scores, axis=1))
+            plt.xlabel('# features')
+            plt.ylabel('CV score')        
+        self.score_over_features = rfe_scores
+
+    def minimal_model_performance(self, X, y, selected_features, repetitions=10):
+        # TODO: add a compare parameter with possible values: 'None', 'random', 'worse'
+        #       to compare the performance of the minimal model with that of a model with same
+        #       number of features chosen at random or from worse ranked.
+        X_min = X[:, selected_features]
+        score_min = crossvalidate_clf(X_min, y, train_size=0.9,
+                                      repetitions=repetitions)
+        return score_min
 
 
 class test_retest_dataset:

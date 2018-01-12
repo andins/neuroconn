@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from untitled0 import test_retest_dataset, classification
 from scipy.io import loadmat
+import pickle
 
 # TODOs: many many stuff
 
@@ -22,5 +23,18 @@ movie.estimate_EC(subjects=range(30), sessions=range(10), saved='/home/andrea/Wo
 movie.subject_classif = classification('subejcts', 'EC',
                                        movie.make_target_subjects(),
                                        movie.make_data_matrix(C='EC'))
-movie.subject_classif.classify_over_subjects(n_subjects=[2, 4], repetitions=10, extract_features=True)
+subj_n = [2, 5, 10, 15, 20, 25, 30]
+movie.subject_classif.classify_over_subjects(n_subjects=subj_n, repetitions=10, extract_features=True)
 #movie.subject_classif.classify_over_sessions(n_sessions=[30, 60])
+pickle.dump(movie, open("/home/andrea/Work/code/neuroconn/prova2.pickle", "wb"))
+n_feat_subj = np.zeros([len(subj_n), 10])
+for s, nsub in enumerate(subj_n):
+    for r in range(10):
+        n_feat_subj[s, r] = movie.subject_classif.features_extraction[nsub][r].shape[0] - 1
+plt.figure()
+plt.fill_between(subj_n, n_feat_subj.mean(axis=1) + n_feat_subj.std(axis=1),
+                 n_feat_subj.mean(axis=1) - n_feat_subj.std(axis=1), alpha=0.5)
+plt.plot(subj_n, n_feat_subj.mean(axis=1))
+plt.xlabel('# subjects')
+plt.ylabel('minimal features')
+

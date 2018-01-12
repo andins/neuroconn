@@ -93,6 +93,7 @@ class classification:
             subj_labels = np.unique(self.y)  # get labels of the subjects
             self.features_extraction[sub] = dict()
             for r in range(repetitions):           
+                self.features_extraction[sub][r] = dict()
                 np.random.shuffle(subj_labels)  # shuffle labels
                 indxs = subj_labels[0:sub]  # and take first sub labels (this way we get sub random labels)
                 idxx = np.zeros(np.shape(self.y), dtype=bool)  # initial 0 index vector
@@ -105,7 +106,8 @@ class classification:
                                                  repetitions=1)
                 if extract_features is True:
                     self.rank_features(newX, newy)
-                    self.features_extraction[sub][r] = self.extract_features(newX, newy, fig=False)
+                    self.features_extraction[sub][r]['ranking'] = self.ranking
+                    self.features_extraction[sub][r]['score'] = self.extract_features(newX, newy, fig=False)
         plt.figure()
         plt.fill_between(n_subjects,
                          self.score_over_subjects.mean(axis=1) +

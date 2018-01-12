@@ -74,7 +74,7 @@ class classification:
         plt.xlabel('# sessions')
         plt.ylabel('CV score')
 
-    def classify_over_subjects(self, n_subjects, repetitions=10):
+    def classify_over_subjects(self, n_subjects, repetitions=10, extract_features=False):
         """
         Performs classification with a subset of subjects, e.g. to investigate the relationship between
         number of subjects and classification performance.
@@ -88,9 +88,11 @@ class classification:
         # TODO: add the possibility to extract features for each subset of subjects
         
         self.score_over_subjects = np.zeros([len(n_subjects), repetitions])
+        self.features_extraction = dict()
         for s, sub in enumerate(n_subjects):
             subj_labels = np.unique(self.y)  # get labels of the subjects
-            for r in range(repetitions):                
+            self.features_extraction[sub] = dict()
+            for r in range(repetitions):           
                 np.random.shuffle(subj_labels)  # shuffle labels
                 indxs = subj_labels[0:sub]  # and take first sub labels (this way we get sub random labels)
                 idxx = np.zeros(np.shape(self.y), dtype=bool)  # initial 0 index vector
@@ -101,6 +103,9 @@ class classification:
                 self.score_over_subjects[s, r] = crossvalidate_clf(newX, newy,
                                                  train_size=sub,
                                                  repetitions=1)
+                if extract_features is True:
+                    self.rank_features(newX, newy)
+                    self.features_extraction[sub][r] = self.extract_features(newX, newy, fig=False)
         plt.figure()
         plt.fill_between(n_subjects,
                          self.score_over_subjects.mean(axis=1) +
@@ -121,31 +126,40 @@ class classification:
     def confusion_matrix(self):
         return 0
 
-    def rank_features(self, saved=False):
-        # Rank each feature in the classification using RFE
-        # TODO: save and recalc are just to import rankings calculated outside the object
+    def rank_features(self, X=None, y=None, saved=False):
+        """
+        Rank each feature in the classification using RFE
+        """
+        # TODO: saved are just to import rankings calculated outside the object
         # the way to save it is directly saving the TRD object: clean up!
         if saved is False:
+            if X is None:
+                X = self.X
+            if y is None:
+                y = self.y
             mlr = LogisticRegression(C=10000, penalty='l2', multi_class= 'multinomial', solver='lbfgs')
             rfe = RFE(estimator=mlr, n_features_to_select=1, step=1)
-            rfe.fit(self.X, self.y)
+            rfe.fit(X, y)
             self.ranking = rfe.ranking_
         else:
             rfe = pickle.load(open(saved, "rb"))
             self.ranking = rfe.ranking_ 
     
     def extract_features(self, X, y, repetitions=10, wdw_l=2, tol=0.001, start_with=1, stop_after=50, step=1, fig=True):
-        # This function need a ranking to be already calculated with
-        # function rank_features.
-        # INPUT:
-        # X: data
-        # y: target
-        # window_length of rolling average
-        # tolerance for considering the derivative equal to zero
-        # start_with: integer determines the starting number of features
-        # stop_after: integer to limit the number of features used for a fast inspection (in case many features are needed)
-        # step : how many feature to add at each step
-        # fig: boolean to plot a figure
+        """
+        This function need a ranking to be already calculated with
+        function rank_features.
+        INPUT:
+        X: data
+        y: target
+        repetitions: number of cross validation shuffling to calculate test-set accuracy
+        wdw_l: window_length of rolling average
+        tol: tolerance for considering the derivative equal to zero
+        start_with: integer determines the starting number of features
+        stop_after: integer to limit the number of features used for a fast inspection (in case many features are needed)
+        step : how many feature to add at each step
+        fig: boolean to plot a figure
+        """
         # TODO: add check for ranking
         # TODO: use X and y of the classification object
         
@@ -158,7 +172,7 @@ class classification:
             # performance has not yet saturated (deriv < tol in previous step)
             if n<3 or abs(np.gradient(smoothed_scores[0:n])[n-1])>tol:
                 subset_feat = self.ranking<=nf
-                rfe_scores[n,:] = self.minimal_model_performance(X, y, subset_feat, repetitions=10)
+                rfe_scores[n, :] = self.minimal_model_performance(X, y, subset_feat, repetitions=10)
                 # smooth scores with a rolling average to get rid of spurious peaks
                 smoothed_scores = np.convolve(rfe_scores.mean(axis=1), np.ones((wdw_l,))/wdw_l, mode='same')
                 rfe_num_feat = nf
@@ -177,6 +191,7 @@ class classification:
             plt.xlabel('# features')
             plt.ylabel('CV score')        
         self.score_over_features = rfe_scores
+        return rfe_scores
 
     def minimal_model_performance(self, X, y, selected_features, repetitions=10):
         # TODO: add a compare parameter with possible values: 'None', 'random', 'worse'

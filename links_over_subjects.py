@@ -22,5 +22,5 @@ movie.estimate_EC(subjects=range(30), sessions=range(10), saved='/home/andrea/Wo
 movie.subject_classif = classification('subejcts', 'EC',
                                        movie.make_target_subjects(),
                                        movie.make_data_matrix(C='EC'))
-movie.subject_classif.classify_over_subjects(n_subjects=[2, 4, 8, 16, 30], repetitions=100)
+movie.subject_classif.classify_over_subjects(n_subjects=[2, 4], repetitions=10, extract_features=True)
 #movie.subject_classif.classify_over_sessions(n_sessions=[30, 60])

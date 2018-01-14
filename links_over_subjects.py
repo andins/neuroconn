@@ -25,7 +25,7 @@ datasetB.subject_classif = classification('subejcts', 'EC',
                                        datasetB.make_data_matrix(C='EC'))
 subj_n = [2, 5, 10, 15, 20, 25, 30]
 # classification varying subjects already done and saved in prova2.pickle
-#datasetB.subject_classif.classify_over_subjects(n_subjects=subj_n, repetitions=10, extract_features=True)
+datasetB.subject_classif.classify_over_subjects(n_subjects=subj_n, repetitions=10, extract_features=False)
 #movie.subject_classif.classify_over_sessions(n_sessions=[30, 60])
 #pickle.dump(datasetB, open("/home/andrea/Work/code/neuroconn/prova2.pickle", "wb"))
 datasetB = pickle.load(open("/home/andrea/Work/code/neuroconn/prova2.pickle", "rb"))
@@ -73,6 +73,47 @@ plt.plot(xx2, log_f(xx2, popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %d
 plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %d" % (SSE_pow))
 plt.legend()
 
+#%%
+# fit classification accuracy over subjects with different functions
+xx = np.repeat(subj_n, 10)
+yy = datasetB.subject_classif.score_over_subjects.flatten()
+from scipy.optimize import curve_fit
+def lin_f(x, a, b):
+    return x * b + a
+def log_f(x, a, b):
+    return np.log(x) * b + a
+def pow_f(x, a, b):
+    return x**b * a
+popt_lin, pcov_lin = curve_fit(lin_f, xx, yy)
+popt_log, pcov_log = curve_fit(log_f, xx, yy)
+popt_pow, pcov_pow = curve_fit(pow_f, xx, yy)
+
+# calculate Sum of Squared Errors
+SSE_lin = 0
+SSE_log = 0
+SSE_pow = 0
+for i, x in enumerate(xx):
+    SSE_lin += (lin_f(x, popt_lin[0], popt_lin[1]) - yy[i])**2
+    SSE_log += (log_f(x, popt_log[0], popt_log[1]) - yy[i])**2
+    SSE_pow += (pow_f(x, popt_pow[0], popt_pow[1]) - yy[i])**2
+
+# plot fitted functions
+plt.figure()
+plt.scatter(subj_n, datasetB.subject_classif.score_over_subjects.mean(axis=1),
+            color='grey', label="data (mean)")
+plt.fill_between(subj_n,
+                         datasetB.subject_classif.score_over_subjects.mean(axis=1) +
+                         datasetB.subject_classif.score_over_subjects.std(axis=1),
+                         datasetB.subject_classif.score_over_subjects.mean(axis=1) -
+                         datasetB.subject_classif.score_over_subjects.std(axis=1),
+                         alpha=0.5, color='grey')
+xx2 = np.linspace(xx.min(), xx.max(), 100)
+plt.plot(xx2, lin_f(xx2, popt_lin[0], popt_lin[1]), '--', label=r"$a + b x$, SSE: %.3f" % (SSE_lin), color='black')
+plt.plot(np.linspace(2, 1000, 100), log_f(np.linspace(2, 1000, 100), popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %.3f" % (SSE_log))
+#plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %.3f" % (SSE_pow))
+plt.legend()
+plt.xlabel('# subjects')
+plt.ylabel('test-set accuracy')
 
 #%% plot correlation of rankings for each repetition for a given number of subjects
 subjN = 5

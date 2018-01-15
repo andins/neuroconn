@@ -59,7 +59,7 @@ class classification:
         """
         self.score_over_sessions = np.zeros([len(n_sessions), repetitions])
         for s, ses in enumerate(n_sessions):
-            self.score_over_sessions[s, :] = crossvalidate_clf(self.X, self.y,
+            self.score_over_sessions[s, :], clf = crossvalidate_clf(self.X, self.y,
                                                  train_size=ses,
                                                  repetitions=repetitions)
         # TODO: probably write a function to make the plot
@@ -101,7 +101,7 @@ class classification:
                     idxx += self.y==indxs[i]  # idxx will be True for each session corresponding to each subject in indxs
                 newy = self.y[idxx]  # create a new y for the classification with a subset of subjects
                 newX = self.X[idxx, :]  # and a new X
-                self.score_over_subjects[s, r] = crossvalidate_clf(newX, newy,
+                self.score_over_subjects[s, r], clf = crossvalidate_clf(newX, newy,
                                                  train_size=sub,
                                                  repetitions=1)
                 if extract_features is True:
@@ -200,7 +200,7 @@ class classification:
         #       to compare the performance of the minimal model with that of a model with same
         #       number of features chosen at random or from worse ranked.
         X_min = X[:, selected_features]
-        score_min = crossvalidate_clf(X_min, y, train_size=0.9,
+        score_min, clf = crossvalidate_clf(X_min, y, train_size=0.9,
                                       repetitions=repetitions)
         return score_min
 
@@ -238,11 +238,15 @@ class test_retest_dataset:
     def estimate_EC(self, subjects, sessions, norm_fc=None, saved=False):
         # TODO: modify to produce fitting graphics in a separate folder
         #       if required
+        # TODO: saved parameter is only to load previously calculated EC it should not be included in the final release
         if saved is not False:
-            # TODO: change these two lines toallow the more general case of i
-            # having the EC directly saved as a numpy array
-            mat = loadmat(saved)
-            ec = np.ravel(mat['EC'])
+            if saved[-3:] == 'mat':
+                mat = loadmat(saved)
+                ec = np.ravel(mat['EC'])
+            elif saved[-3:] == 'npy':
+                ec = np.load(saved)
+            else:
+                raise ValueError('the file has to .mat or .npy!')
         for sb in subjects:
             for ss in sessions:
                 if saved is False:
@@ -254,10 +258,12 @@ class test_retest_dataset:
                     self.subjects[sb].sessions[ss].tau_x = tau_x
                     self.subjects[sb].sessions[ss].model_fit = d_fit
                     self.subjects[sb].sessions[ss].EC = EC
-                else:
+                elif saved[-3:] == 'mat':
                     EC = np.zeros([self.n_ROIs, self.n_ROIs])
                     EC[self.SC] = ec[sb][ss]
                     self.subjects[sb].sessions[ss].EC = EC
+                elif saved[-3:] == 'npy':
+                    self.subjects[sb].sessions[ss].EC = ec[sb, ss, :, :]
 
     def estimate_FC(self, subjects=None, sessions=None):
         if subjects is None:
@@ -339,11 +345,11 @@ class test_retest_dataset:
 
 def crossvalidate_clf(X, y, train_size, repetitions=10, random_state=None):
     # TODO: move to utils
-    # TODO: let choose the classifier
+    # TODO: let choose among different classifiers
     clf = LogisticRegression(C=10000, penalty='l2',
                              multi_class='multinomial',
                              solver='lbfgs')
-    pipe = Pipeline([('clf', clf)])
+    pipe = Pipeline([('clf', clf)])  # possibly add PCA
     scores = np.zeros([repetitions])
     sss = StratifiedShuffleSplit(n_splits=repetitions, test_size=None,
                                  train_size=train_size, random_state=random_state)
@@ -358,7 +364,7 @@ def crossvalidate_clf(X, y, train_size, repetitions=10, random_state=None):
         # predict on test
         scores[r] = pipe.score(data_test, y_test)
         r += 1
-    return scores
+    return scores, pipe
 
 
 def calc_mean_FC():

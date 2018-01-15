@@ -17,7 +17,7 @@ fc = np.ravel(mat['corrFC'])
 ec = np.ravel(mat['EC'])
 mask_AAL = np.array(loadmat('/home/andrea/Work/vicente/mask_EC_AAL.mat')['mask_EC'], dtype=bool)
 datasetB = test_retest_dataset(ts_fake, conditions=None, SC=mask_AAL)
-#movie.estimate_FC()
+#datasetB.estimate_FC()
 datasetB.estimate_EC(subjects=range(30), sessions=range(10), saved='/home/andrea/Work/vicente/EC_corrFC_30subj10sess.mat')
 # TODO: estimate EC and compare with saved estimates
 datasetB.subject_classif = classification('subejcts', 'EC',
@@ -25,7 +25,7 @@ datasetB.subject_classif = classification('subejcts', 'EC',
                                        datasetB.make_data_matrix(C='EC'))
 subj_n = [2, 5, 10, 15, 20, 25, 30]
 # classification varying subjects already done and saved in prova2.pickle
-datasetB.subject_classif.classify_over_subjects(n_subjects=subj_n, repetitions=10, extract_features=False)
+datasetB.subject_classif.classify_over_subjects(n_subjects=subj_n, repetitions=100, extract_features=False)
 #movie.subject_classif.classify_over_sessions(n_sessions=[30, 60])
 #pickle.dump(datasetB, open("/home/andrea/Work/code/neuroconn/prova2.pickle", "wb"))
 datasetB = pickle.load(open("/home/andrea/Work/code/neuroconn/prova2.pickle", "rb"))
@@ -75,7 +75,7 @@ plt.legend()
 
 #%%
 # fit classification accuracy over subjects with different functions
-xx = np.repeat(subj_n, 10)
+xx = np.repeat(subj_n, 100)
 yy = datasetB.subject_classif.score_over_subjects.flatten()
 from scipy.optimize import curve_fit
 def lin_f(x, a, b):

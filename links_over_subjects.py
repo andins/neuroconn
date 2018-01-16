@@ -54,7 +54,7 @@ datasetB.subject_classif_EC.classify_over_subjects(n_subjects=subj_n, repetition
 n_feat_subj = np.zeros([len(subj_n), 10])  # 10 here depends on the number of repetitions used to extract features
 for s, nsub in enumerate(subj_n):
     for r in range(10):
-        n_feat_subj[s, r] = datasetB.subject_classif_EC.features_extraction[nsub][r]['score'].shape[0] - 1
+        n_feat_subj[s, r] = datasetB.subject_classif.features_extraction[nsub][r]['score'].shape[0] - 1
 sns.set_palette('colorblind')
 plt.figure()
 plt.fill_between(subj_n, n_feat_subj.mean(axis=1) + n_feat_subj.std(axis=1),
@@ -87,8 +87,8 @@ def fit_curves(xx, yy, extrapolate=None):
     
     # plot fitted functions
     if extrapolate==None:
-        project = xx.max()
-    xx2 = np.linspace(xx.min(), project, 100)
+        extrapolate = xx.max()
+    xx2 = np.linspace(xx.min(), extrapolate, 100)
     plt.plot(xx2, lin_f(xx2, popt_lin[0], popt_lin[1]), label=r"$a + b x$, SSE: %.2f" % (SSE_lin))
     plt.plot(xx2, log_f(xx2, popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %.2f" % (SSE_log))
     plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %.2f" % (SSE_pow))

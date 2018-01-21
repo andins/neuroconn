@@ -132,7 +132,9 @@ class classification:
         """
         Rank each feature in the classification using RFE
         """
-        # TODO: saved are just to import rankings calculated outside the object
+        # TODO: add a parameter to control the ranking method: RFE,
+        #       information-based filter, classifier coefficients, ...
+        # TODO: saved is just to import rankings calculated outside the object
         # the way to save it is directly saving the TRD object: clean up!
         if saved is False:
             if X is None:

@@ -133,7 +133,9 @@ class classification:
         """
         Rank each feature in the classification using RFE
         """
-        # TODO: saved are just to import rankings calculated outside the object
+        # TODO: add a parameter to control the ranking method: RFE,
+        #       information-based filter, classifier coefficients, ...
+        # TODO: saved is just to import rankings calculated outside the object
         # the way to save it is directly saving the TRD object: clean up!
         if saved is False:
             if X is None:
@@ -348,7 +350,16 @@ class test_retest_dataset:
         return y
 
 
-def crossvalidate_clf(X, y, train_size, repetitions=10, random_state=None):
+def crossvalidate_clf(X, y, train_size, repetitions=10, random_state=None, check_stability=False):
+    """
+    Fits and test a classifier using StratifiedShuffleSplit().
+    PARAMETERS:
+        check_stability: not yet implemented...
+    RETURNS:
+        scores: an array with repetitions elements containing the score of the classifier for each repetition.
+    """
+    # TODO: implement stability check: look at variance of parameters over shuffle split repetitions, average of parameters
+    #       and parameters of model refitter with whole dataset. 
     # TODO: move to utils
     # TODO: let choose among different classifiers
     clf = LogisticRegression(C=10000, penalty='l2',

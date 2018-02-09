@@ -42,14 +42,18 @@ movie.condition_classif_EC = classification('conditions', 'EC',
 #movie.subject_classif_EC.rank_features()
 # fit MLR and returns the accuracy and the classifier object
 X = movie.subject_classif_EC.X[:, :]  # index second axis to use a subset of features
+# get the test-set accuracy and classifier object
 score_s, clf_s = crossvalidate_clf(X, movie.subject_classif_EC.y,
                                    train_size=76, repetitions=10)
+clf_s.fit(X, movie.subject_classif_EC.y)  # refit the classifier with whole dataset
 # access classifier prediction of class probability
 prob_s = clf_s.predict_proba(movie.subject_classif_EC.X)
 # fit MLR and returns the accuracy and the classifier object
 X = movie.condition_classif_EC.X[:, :]  # index second axis to use a subset of features
-score_c, clf_c = crossvalidate_clf(X, movie.subject_classif_EC.y,
+# get the test-set accuracy and classifier object
+score_c, clf_c = crossvalidate_clf(X, movie.condition_classif_EC.y,
                                    train_size=.8, repetitions=10)
+clf_c.fit(X, movie.condition_classif_EC.y)  # refit the classifier with whole dataset
 # access classifier prediction of class probability
 prob_c = clf_c.predict_proba(movie.condition_classif_EC.X)
 

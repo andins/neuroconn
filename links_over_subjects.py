@@ -89,9 +89,9 @@ def fit_curves(xx, yy, extrapolate=None):
     if extrapolate==None:
         extrapolate = xx.max()
     xx2 = np.linspace(xx.min(), extrapolate, 100)
-    plt.plot(xx2, lin_f(xx2, popt_lin[0], popt_lin[1]), label=r"$a + b x$, SSE: %.2f" % (SSE_lin))
-    plt.plot(xx2, log_f(xx2, popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %.2f" % (SSE_log))
-    plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %.2f" % (SSE_pow))
+    plt.plot(xx2, lin_f(xx2, popt_lin[0], popt_lin[1]), label=r"$a + b x$, SSE: %.4f" % (SSE_lin))
+    plt.plot(xx2, log_f(xx2, popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %.4f" % (SSE_log))
+    plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %.4f" % (SSE_pow))
     plt.legend()
 
 fit_curves(xx=np.repeat(subj_n, 10), yy=n_feat_subj.flatten(), extrapolate=1000)
@@ -101,15 +101,13 @@ plt.figure()
 plt.scatter(subj_n, datasetB.subject_classif_EC.score_over_subjects.mean(axis=1),
             color='grey', label="data (mean)")
 plt.fill_between(subj_n,
-                         datasetB.subject_classif.score_over_subjects.mean(axis=1) +
-                         datasetB.subject_classif.score_over_subjects.std(axis=1),
-                         datasetB.subject_classif.score_over_subjects.mean(axis=1) -
-                         datasetB.subject_classif.score_over_subjects.std(axis=1),
-                         alpha=0.5, color='grey')
+                 np.percentile(datasetB.subject_classif_EC.score_over_subjects, 95, axis=1),
+                 np.percentile(datasetB.subject_classif_EC.score_over_subjects, 5, axis=1),
+                 alpha=0.5, color='grey')
 plt.xlabel('# subjects')
 plt.ylabel('test-set accuracy')
-fit_curves(xx=np.repeat(subj_n, 10), 
-           yy=datasetB.subject_classif.score_over_subjects.flatten(), extrapolate=1000)
+fit_curves(xx=np.repeat(subj_n, 100), 
+           yy=datasetB.subject_classif_EC.score_over_subjects.flatten(), extrapolate=1000)
 
 #######################################
 # plot correlation of rankings for each repetition for a given number of subjects

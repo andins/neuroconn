@@ -13,6 +13,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import RFE
+from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.io import loadmat
@@ -276,7 +277,7 @@ class test_retest_dataset:
                 FC = np.corrcoef(BOLD_ts)
                 self.subjects[sb].sessions[ss].FC = FC
 
-    def make_data_matrix(self, subjects=None, sessions=None, C='FC'):
+    def make_data_matrix(self, subjects=None, sessions=None, C='FC', scale_samples=True):
         # move to utils
         """
         Builds a data matrix [n_samples, n_features] by concatenating
@@ -295,7 +296,6 @@ class test_retest_dataset:
                 for ss in sessions:
                     X[i, :] = self.subjects[sb].sessions[ss].FC[idxs]
                     i += 1
-        # TODO implement test for EC
         elif C is 'EC':
             num_non_zero = np.sum(self.SC)
             X = np.zeros([len(subjects)*len(sessions), num_non_zero])
@@ -306,6 +306,11 @@ class test_retest_dataset:
                     i += 1
         else:
             raise ValueError("C has to be either FC or EC.")
+        if scale_samples:
+            zscore = StandardScaler()
+            Xaux = zscore.fit_transform(X.T)  # transpose X cause StandardScaler zscores 
+            X = Xaux.T
+            
         return X
 
     def make_target_subjects(self, subjects=None, sessions=None):

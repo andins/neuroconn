@@ -17,7 +17,7 @@ from matplotlib.gridspec import GridSpec
 
 class MOU(BaseEstimator):
     
-    def __init__(self, n_nodes=10, C=None, Sigma=None, tau_x=1.0):
+    def __init__(self, n_nodes=10, C=None, Sigma=None, tau_x=1.0, mu=0.0):
         if C is None:
             self.C = np.zeros([n_nodes, n_nodes])
         else:
@@ -28,7 +28,7 @@ class MOU(BaseEstimator):
             self.Sigma = Sigma
         self.tau_x = tau_x
         self.n_nodes = n_nodes
-
+        self.mu = mu
 
     def fit(self, X, y=None, SC_mask=None, norm_fc=None, true_S=None, true_C=None, verbose=0):
         """
@@ -265,20 +265,51 @@ class MOU(BaseEstimator):
             pp.scatter(FCtau_obj.diagonal(), FCtau_best.diagonal(), marker= '.', color='c', label='diagonal')
             pp.xlabel('FCtau emp')
             pp.ylabel('FCtau model')
-            
-        
+
         self.C = EC_best
         self.Sigma = Sigma_best
         self.tau_x = tau_x
         self.d_fit = d_fit
-        
+
         return self
 
     def score(self):
-        return 0
-    
-    def simulate(self, time_points=300):
-        Xsim =np.zeros([time_points, self.n_nodes])
-        return Xsim
-        
+        return self.d_fit['correlation']
 
+    def simulate(self, T=9000, dt=0.05, verbose=0):
+        """
+        Simulate the model with simple Euler integration.
+        -----------
+        PARAMETERS:
+        T : duration of simulation
+        dt : integration time step
+        -----------
+        RETURNS:
+        ts : time series of simulated network activity of shape [T, n_nodes]
+        -----------
+        NOTES:
+        it is possible to include an acitvation function to
+        give non linear effect of network input; here assumed to be identity
+
+        """
+
+        T0 = 100.  # initialization time for network dynamics
+        n_sampl = int(1./dt)  # sampling to get 1 point every second
+        n_T = int(np.ceil(T/dt))
+        n_T0 = int(T0/dt)
+        ts = np.zeros([n_T, self.n_nodes])  # to save results
+        # initialization
+        t_span = np.arange(n_T0 + n_T, dtype=int)
+        x_tmp = np.random.rand(self.n_nodes)  # initial activity of nodes
+        u_tmp = np.zeros([self.n_nodes])
+        # sample all noise terms at ones
+        noise = np.random.normal(size=[n_T0 + n_T, self.n_nodes], scale=(dt**0.5))
+        # numerical simulations
+        for t in t_span:
+            u_tmp = np.dot(self.C, x_tmp) + self.mu
+            x_tmp += dt * (-x_tmp / self.tau_x + u_tmp) + np.dot(self.Sigma, noise[t, :])
+            if t > n_T0:  # discard first n_T0 timepoints
+                ts[t-n_T0, :] = x_tmp
+
+        # subsample timeseries to approx match fMRI time resolution
+        return ts[::n_sampl, :]

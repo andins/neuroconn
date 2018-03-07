@@ -23,9 +23,11 @@ class MOU(BaseEstimator):
         else:
             self.C = C
         if Sigma is None:
-            self.Sigma = np.eye(n_nodes) * 1.0
+            self.Sigma = np.eye(n_nodes) * 0.5 + 0.5 * np.random.rand(n_nodes)
+        elif np.isscalar(Sigma):
+            self.Sigma = np.eye(n_nodes) * np.sqrt(Sigma)
         else:
-            self.Sigma = Sigma
+            raise("Only scalar values accepted corresponding to diagonal noise covariance matrix.")
         self.tau_x = tau_x
         self.n_nodes = n_nodes
         self.mu = mu
@@ -270,6 +272,9 @@ class MOU(BaseEstimator):
                 Q_emp[i_tau, :, :] = np.tensordot(ts_emp[0:n_T-n_tau,:],ts_emp[i_tau:n_T-n_tau+i_tau,:],axes=(0,0)) / float(n_T-n_tau-1)
             # Jacobian estimate
             J = spl.logm(np.dot(np.linalg.inv(Q_emp[0, :, :]), Q_emp[1, :, :])).T  # WARNING: tau is 1 here (if a different one is used C gets divided by tau)
+            if np.any(np.iscomplex(J)):
+                J = np.real(J)
+                print("Warning: complex values in J; casting to real!")
             # Sigma estimate
             Sigma_best = -np.dot(J, Q_emp[0, :, :])-np.dot(Q_emp[0, :, :], J.T)
             # theoretical covariance
@@ -279,6 +284,36 @@ class MOU(BaseEstimator):
             # average correlation between empirical and theoretical
             d_fit['correlation'] = 0.5 * (stt.pearsonr(Q0.flatten(), Q_emp[0, :, :].flatten())[0] +
                                          stt.pearsonr(Qtau.flatten(), Q_emp[1, :, :].flatten())[0])
+            tau_x = J.diagonal()
+            np.fill_diagonal(J, 0)
+            EC_best = J
+            
+        elif method=='bayes':
+            X = X.T  # here shape is [ROIs, timepoints] to be consistent with Singh paper
+            N = X.shape[1]  # number of time steps
+            X -= np.outer(X.mean(axis=1), np.ones(N))  # center the time series
+            T1 = [np.dot(X[:, i+1:i+2], X[:, i+1:i+2].T) for i in range(N-1)]
+            T1 = np.sum(T1, axis=0)
+            T2 = [np.dot(X[:, i+1:i+2], X[:, i:i+1].T) for i in range(N-1)]
+            T2 = np.sum(T2, axis=0)
+            T3 = [np.dot(X[:, i:i+1], X[:, i:i+1].T) for i in range(N-1)]
+            T3 = np.sum(T3, axis=0)
+        #    T4 = np.dot(X[:, 0:1], X[:, 0:1].T)  # this is actually not used
+            LAM_best = np.dot(T2, np.linalg.inv(T3))
+            # Kappa_best can be useful for generating samples using (called Sigma in Singh paper)
+            # x_(n+1) = dot(LAM, x_n) + dot(sqrt(Kappa_best), Xi_n)
+            Kappa_best = (T1 - np.dot(np.dot(T2, np.linalg.inv(T3)), T2.T)) / N
+            # J is -lambda in Singh paper
+            # WARNING: tau is 1 here (if a different one is used J.T gets multiplied by tau)
+            J = spl.logm(LAM_best)
+            if not np.all(np.isclose(spl.expm(J), LAM_best, rtol=1e-01)):
+                print("Warning: logarithm!")
+            if np.any(np.iscomplex(J)):
+                J = np.real(J)
+                print("Warning: complex values in J; casting to real!")
+            # TODO: implement bayes I for Q0 (called c in Singh paper)
+            Q0 = T3 / N  # this here is bayes II solution (equivalent to sample covariance)
+            Sigma_best = -np.dot(J, Q0)-np.dot(Q0, J.T)
             tau_x = J.diagonal()
             np.fill_diagonal(J, 0)
             EC_best = J

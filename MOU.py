@@ -363,7 +363,7 @@ class MOU(BaseEstimator):
         for t in t_span:
             u_tmp = np.dot(self.C, x_tmp) + self.mu
             x_tmp += dt * (-x_tmp / self.tau_x + u_tmp) + np.dot(self.Sigma, noise[t, :])
-            if t > n_T0:  # discard first n_T0 timepoints
+            if t > (n_T0-1):  # discard first n_T0 timepoints
                 ts[t-n_T0, :] = x_tmp
 
         # subsample timeseries to approx match fMRI time resolution

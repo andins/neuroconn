@@ -17,13 +17,15 @@ from matplotlib.gridspec import GridSpec
 
 class MOU(BaseEstimator):
     
-    def __init__(self, n_nodes=10, C=None, Sigma=None, tau_x=1.0, mu=0.0):
+    def __init__(self, n_nodes=10, C=None, Sigma=None, tau_x=1.0, mu=0.0, random_state=None):
+        if random_state is not None:  # set seed for reproducibility
+            np.random.seed(random_state)
         if C is None:
             self.C = np.zeros([n_nodes, n_nodes])
         else:
             self.C = C
         if Sigma is None:
-            self.Sigma = np.eye(n_nodes) * 0.5 + 0.5 * np.random.rand(n_nodes)
+            self.Sigma = np.eye(n_nodes) * 0.5 + np.eye(n_nodes) * 0.5 * np.random.rand(n_nodes)
         elif np.isscalar(Sigma):
             self.Sigma = np.eye(n_nodes) * np.sqrt(Sigma)
         else:
@@ -284,7 +286,7 @@ class MOU(BaseEstimator):
             # average correlation between empirical and theoretical
             d_fit['correlation'] = 0.5 * (stt.pearsonr(Q0.flatten(), Q_emp[0, :, :].flatten())[0] +
                                          stt.pearsonr(Qtau.flatten(), Q_emp[1, :, :].flatten())[0])
-            tau_x = J.diagonal()
+            tau_x = -J.diagonal().copy()
             np.fill_diagonal(J, 0)
             EC_best = J
             
@@ -331,7 +333,7 @@ class MOU(BaseEstimator):
     def score(self):
         return self.d_fit['correlation']
 
-    def simulate(self, T=9000, dt=0.05, verbose=0):
+    def simulate(self, T=9000, dt=0.05, verbose=0, random_state=None):
         """
         Simulate the model with simple Euler integration.
         -----------
@@ -347,7 +349,8 @@ class MOU(BaseEstimator):
         give non linear effect of network input; here assumed to be identity
 
         """
-
+        if random_state is not None:  # set seed for reproducibility
+            np.random.seed(random_state)
         T0 = 100.  # initialization time for network dynamics
         n_sampl = int(1./dt)  # sampling to get 1 point every second
         n_T = int(np.ceil(T/dt))

@@ -67,15 +67,26 @@ class MOU(BaseEstimator):
         # TODO: get rid of comparison with ground truth
         # TODO: move SC_make to __init__()
         # TODO: make better graphics (deal with axes separation, etc.)
-        # FIXME: tau_x in Matt origina script is calculated as the mean tau_x over sessions for each subject: why? Is this import? 
+        # FIXME: tau_x in Matt origina script is calculated as the mean tau_x over sessions for each subject: why? Is this import?
+        # TODO: check consistent N between object init and time series X passed to fit()
     
         if not(true_model is None):  # if true model is known
             true_C = true_model[0]  # used later to calculate error iteratively
             true_S = true_model[1]
 
         n_T = X.shape[0]  # number of time samples
+        N = X.shape[1] # number of ROIs
         d_fit = dict()  # a dictionary to store the diagnostics of fit
         
+        # mask for existing connections for EC and Sigma
+        mask_diag = np.eye(N,dtype=bool)
+        if SC_mask is None:
+            mask_EC = np.logical_not(mask_diag) # all possible connections except self
+        else:
+            mask_EC = SC_mask
+        mask_Sigma = np.eye(N,dtype=bool) # independent noise
+        #mask_Sigma = np.ones([N,N],dtype=bool) # coloured noise
+            
         if method=='lyapunov':
             # optimzation steps and rate
             n_opt = 10000
@@ -87,7 +98,6 @@ class MOU(BaseEstimator):
             if verbose>0:
                 print('regularization:', regul_EC, ';', regul_Sigma)
             
-            N = X.shape[1] # number of ROIs
             n_tau = 3 # number of time shifts for FC_emp
             v_tau = np.arange(n_tau)
             i_tau_opt = 1 # time shift for optimization
@@ -115,15 +125,6 @@ class MOU(BaseEstimator):
             tau_x = -1./lin_reg[0]
             if verbose>0:
                 print('inverse of negative slope (time constant):', tau_x)
-            
-            # mask for existing connections for EC and Sigma
-            mask_diag = np.eye(N,dtype=bool)
-            if SC_mask is None:
-                mask_EC = np.logical_not(mask_diag) # all possible connections except self
-            else:
-                mask_EC = SC_mask
-            mask_Sigma = np.eye(N,dtype=bool) # independent noise
-            #mask_Sigma = np.ones([N,N],dtype=bool) # coloured noise
             
             # optimization
             if verbose>0:
@@ -287,8 +288,9 @@ class MOU(BaseEstimator):
             d_fit['correlation'] = 0.5 * (stt.pearsonr(Q0.flatten(), Q_emp[0, :, :].flatten())[0] +
                                          stt.pearsonr(Qtau.flatten(), Q_emp[1, :, :].flatten())[0])
             tau_x = -J.diagonal().copy()
-            np.fill_diagonal(J, 0)
-            EC_best = J
+            np.fill_diagonal(J, 0)  # superfluous: remove!
+            EC_best = np.zeros([N, N])
+            EC_best[mask_EC] = J[mask_EC]
             
         elif method=='bayes':
             X = X.T  # here shape is [ROIs, timepoints] to be consistent with Singh paper

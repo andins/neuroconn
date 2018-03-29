@@ -373,3 +373,11 @@ class MOU(BaseEstimator):
 
         # subsample timeseries to approx match fMRI time resolution
         return ts[::n_sampl, :]
+
+
+def make_rnd_connectivity(N, density=0.2, connectivity_strength=0.5, shape=1, scale=2):
+    C = np.exp(np.random.randn(N, N))  # log normal
+    C[np.random.rand(N, N) > density] = 0
+    C[np.eye(N, dtype=bool)] = 0
+    C *= connectivity_strength * N / C.sum()
+    return C

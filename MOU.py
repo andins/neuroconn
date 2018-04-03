@@ -12,6 +12,11 @@ import scipy.stats as stt
 from sklearn.base import BaseEstimator
 import matplotlib.pyplot as pp
 from matplotlib.gridspec import GridSpec
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import ShuffleSplit
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import PCA
 
 
 
@@ -375,9 +380,53 @@ class MOU(BaseEstimator):
         return ts[::n_sampl, :]
 
 
-def make_rnd_connectivity(N, density=0.2, connectivity_strength=0.5, shape=1, scale=2):
+def make_rnd_connectivity(N, density=0.2, connectivity_strength=0.5):
+    """
+    Creates a random connnectivity matrix as the element-wise product $ C' = A \otimes W$,
+    where A is a binary adjacency matrix samples from Bern(density) and W is sampled from log-normal
+    $log(W) \sim \mathcal{N}(0,1)$.
+    The matrix gets normalized in order to avoid explosion of activity when varying the number of nodes N.
+    $ C = \frac{C' N}{\sum_{i,j} C'} $
+    """
     C = np.exp(np.random.randn(N, N))  # log normal
     C[np.random.rand(N, N) > density] = 0
     C[np.eye(N, dtype=bool)] = 0
     C *= connectivity_strength * N / C.sum()
     return C
+
+
+def classfy(X, y, zscore=False, pca=False):
+    """
+    Classify in X according to labels in y.
+    PARAMETERS:
+        X : data matrix shape [N, P] with samples on the rows
+        y : labels shape [N]
+        zscore : Bool turns z-score on or off
+        PCA : Bool turns PCA on or off
+    """
+    # classifier instantiation
+    clf = LogisticRegression(C=10000, penalty='l2', multi_class='multinomial', solver='lbfgs')
+    # corresponding pipeline: zscore and pca can be easily turned on or off
+    if zscore:
+        z = ('zscore', StandardScaler())
+    else:
+        z = ('identity_zscore', FunctionTransformer())
+    if pca:
+        p = ('PCA', PCA())
+    else:
+        p = ('identity_pca', FunctionTransformer())
+    pipe = Pipeline([z, p, ('clf', clf)])
+    repetitions = 100  # number of times the train/test split is repeated
+    # shuffle splits for validation test accuracy
+    shS = ShuffleSplit(n_splits=repetitions, test_size=None, train_size=.8, random_state=0)
+    score = np.zeros([repetitions])
+    i = 0  # counter for repetitions
+    for train_idx, test_idx in shS.split(X):  # repetitions loop
+        data_train = X[train_idx, :]
+        y_train = y[train_idx]
+        data_test = X[test_idx, :]
+        y_test = y[test_idx]
+        pipe.fit(data_train, y_train)
+        score[i] = pipe.score(data_test, y_test)
+        i += 1
+    return score

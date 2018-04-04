@@ -299,7 +299,6 @@ class MOU(BaseEstimator):
             d_fit['correlation'] = 0.5 * (stt.pearsonr(Q0.flatten(), Q_emp[0, :, :].flatten())[0] +
                                          stt.pearsonr(Qtau.flatten(), Q_emp[1, :, :].flatten())[0])
             tau_x = -J.diagonal().copy()
-            np.fill_diagonal(J, 0)  # superfluous: remove!
             EC_best = np.zeros([N, N])
             EC_best[mask_EC] = J[mask_EC]
             

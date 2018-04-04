@@ -39,7 +39,10 @@ class MOU(BaseEstimator):
         self.n_nodes = n_nodes
         self.mu = mu
 
-    def fit(self, X, y=None, SC_mask=None, method='lyapunov', norm_fc=None, true_model=None, verbose=0):
+    def fit(self, X, y=None, SC_mask=None, method='lyapunov', norm_fc=None, 
+            epsilon_EC=0.0005, epsilon_Sigma=0.05, min_val_EC=0.0, max_val_EC=0.4,
+            n_opt=10000, regul_EC=0, regul_Sigma=0,
+            true_model=None, verbose=0):
         """
         Estimation of MOU parameters (connectivity C, noise covariance Sigma,
         and time constant tau_x) with Lyapunov optimization as in: Gilson et al.
@@ -54,6 +57,16 @@ class MOU(BaseEstimator):
             the network activity explode. FC is normalized as FC *= 0.5/norm_fc. norm_fc can be specified to be for example
             the average over all entries of FC for all subjects or sessions in a given group. If not specified the normalization factor is
             the mean of 0-lag covariance matrix of the provided time series ts_emp. 
+            epsilon_EC : learning rate for connectivity (this should be about n_nodes times smaller than epsilon_Sigma).
+            epsilon_Sigma : learning rate for Sigma (this should be about n_nodes times larger than epsilon_EC).
+            min_val_EC : minimum value to bound connectivity estimate. This should be zero or slightly negative (too negative limit can bring to an
+            inhibition dominated system). If the empirical covariance has many negative entries then a slightly negative limit can improve the estimation
+            accuracy.
+            max_val_EC : maximum value to bound connectivity estimate. This is useful to avoid large weight that make the system unstable.
+            If the estimated connectivity saturates toward this value (it usually doesn't happen) it can be increased.
+            n_opt : number of maximum optimization steps. If final number of iterations reaches this maximum it means the algorithm has not converged.
+            regul_EC : regularization parameter for connectivity (try a value of 0.5)
+            regul_Sigma : regularization parameter for Sigma (try a value of 0.001)
             true_model: a tuple (true_C, true_S) of true connectivity matrix and noise covariance (for calculating the error of estimation iteratively)
             verbose: verbosity level; 0: no output; 1: prints regularization parameters,
             estimated \tau_x, used lag \tau for lagged-covariance and evolution of the iterative
@@ -68,6 +81,7 @@ class MOU(BaseEstimator):
             tau_x: estimated time constant (scalar)
             d_fit: a dictionary with diagnostics of the fit; keys are: iterations, distance and correlation
         """
+        # TODO: raise a warning if the algorithm does not converge
         # TODO: look into regularization
         # TODO: get rid of comparison with ground truth
         # TODO: move SC_make to __init__()
@@ -93,12 +107,6 @@ class MOU(BaseEstimator):
         #mask_Sigma = np.ones([N,N],dtype=bool) # coloured noise
             
         if method=='lyapunov':
-            # optimzation steps and rate
-            n_opt = 10000
-            epsilon_EC = 0.0005
-            epsilon_Sigma = 0.05
-            regul_EC = 0  # 0.5
-            regul_Sigma = 0  # 0.001
             
             if verbose>0:
                 print('regularization:', regul_EC, ';', regul_Sigma)
@@ -107,8 +115,6 @@ class MOU(BaseEstimator):
             v_tau = np.arange(n_tau)
             i_tau_opt = 1 # time shift for optimization
             
-            min_val_EC = 0. # minimal value for EC
-            max_val_EC = 0.4 # maximal value for EC
             min_val_Sigma_diag = 0. # minimal value for Sigma
           
             # FC matrix 

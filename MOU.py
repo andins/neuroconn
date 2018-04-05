@@ -343,7 +343,28 @@ class MOU(BaseEstimator):
         return self
 
     def score(self):
-        return self.d_fit['correlation']
+        try:
+            return self.d_fit['correlation']
+        except:
+            print('the model has not been fit yet. Call the fit method first.')
+            
+    def model_covariance(self, tau=0):
+        """
+        Calculates theoretical (lagged) covariances of the model given the parameters (forward step).
+        Notice that this is not the empirical covariance matrix as estimated from simulated time series.
+        PARAMETERS:
+            tau : the lag to calculate the covariance
+        RETURNS:
+            FC : the (lagged) covariance matrix.
+        """
+        J = -np.eye(self.n_nodes)/self.tau_x + self.C
+        # calculate FC0 and FCtau for model
+        FC0 = spl.solve_lyapunov(J, -self.Sigma)
+        if tau==0:
+            return FC0
+        else:
+            FCtau = np.dot(FC0, spl.expm(J.T * tau))
+            return FCtau
 
     def simulate(self, T=9000, dt=0.05, verbose=0, random_state=None):
         """

@@ -7,7 +7,7 @@ Created on Mon Dec  4 08:30:06 2017
 """
 
 import numpy as np
-from MOU_estimation import MOU_Lyapunov
+from MOU import MOU
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.decomposition import PCA
@@ -249,18 +249,16 @@ class test_retest_dataset:
             elif saved[-3:] == 'npy':
                 ec = np.load(saved)
             else:
-                raise ValueError('the file has to .mat or .npy!')
+                raise ValueError('the file has to be .mat or .npy!')
         for sb in subjects:
             for ss in sessions:
                 if saved is False:
                     BOLD_ts = self.subjects[sb].sessions[ss].BOLD
-                    SC = self.SC
-                    EC, S, tau_x, d_fit = MOU_Lyapunov(ts_emp=BOLD_ts,
-                                                       SC_mask=SC, norm_fc=norm_fc)
-                    self.subjects[sb].sessions[ss].Sigma = S
-                    self.subjects[sb].sessions[ss].tau_x = tau_x
-                    self.subjects[sb].sessions[ss].model_fit = d_fit
-                    self.subjects[sb].sessions[ss].EC = EC
+                    model = MOU(n_nodes=self.n_ROIs).fit(X=BOLD_ts, method="lyapunov", SC_mask=self.SC)
+                    self.subjects[sb].sessions[ss].Sigma = model.Sigma
+                    self.subjects[sb].sessions[ss].tau_x = model.tau_x
+                    self.subjects[sb].sessions[ss].model_fit = model.score()
+                    self.subjects[sb].sessions[ss].EC = model.C
                 elif saved[-3:] == 'mat':
                     EC = np.zeros([self.n_ROIs, self.n_ROIs])
                     EC[self.SC] = ec[sb][ss]

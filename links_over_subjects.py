@@ -56,12 +56,17 @@ for s, nsub in enumerate(subj_n):
     for r in range(10):
         n_feat_subj[s, r] = datasetB.subject_classif.features_extraction[nsub][r]['score'].shape[0] - 1
 sns.set_palette('colorblind')
-plt.figure()
+sns.set_style('darkgrid')
+sns.set_context('talk')
+fig = plt.figure()
+plt.minorticks_on()
 plt.fill_between(subj_n, n_feat_subj.mean(axis=1) + n_feat_subj.std(axis=1),
                  n_feat_subj.mean(axis=1) - n_feat_subj.std(axis=1), alpha=0.5, color='grey')
 plt.scatter(subj_n, n_feat_subj.mean(axis=1), label="data (mean)", color='grey')
-plt.xlabel('# subjects')
-plt.ylabel('minimal features')
+plt.xlabel('# subjects', fontsize=22)
+plt.ylabel('minimal features', fontsize=22)
+plt.yscale('log')
+plt.xscale('log')
 
 def fit_curves(xx, yy, extrapolate=None):
     # fit minimal features over subjects with different functions
@@ -92,9 +97,11 @@ def fit_curves(xx, yy, extrapolate=None):
     plt.plot(xx2, lin_f(xx2, popt_lin[0], popt_lin[1]), label=r"$a + b x$, SSE: %.4f" % (SSE_lin))
     plt.plot(xx2, log_f(xx2, popt_log[0], popt_log[1]), label=r"$a+ln(x) b$, SSE: %.4f" % (SSE_log))
     plt.plot(xx2, pow_f(xx2, popt_pow[0], popt_pow[1]), label=r"$a x^b$, SSE: %.4f" % (SSE_pow))
-    plt.legend()
-
+    plt.legend(fontsize=22)
+    
 fit_curves(xx=np.repeat(subj_n, 10), yy=n_feat_subj.flatten(), extrapolate=1000)
+plt.grid(which='minor')
+
 ###############################################
 #plot classification accuracy over number of subjects with curve fit and extrapolation to 1000 subjects
 plt.figure()
@@ -108,7 +115,9 @@ plt.xlabel('# subjects')
 plt.ylabel('test-set accuracy')
 fit_curves(xx=np.repeat(subj_n, 100), 
            yy=datasetB.subject_classif_EC.score_over_subjects.flatten(), extrapolate=1000)
-
+plt.xscale('log')
+plt.grid(which='minor')
+plt.ylim([.8, 1])
 #######################################
 # plot correlation of rankings for each repetition for a given number of subjects
 subjN = 5

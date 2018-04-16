@@ -111,8 +111,8 @@ plt.fill_between(subj_n,
                  np.percentile(datasetB.subject_classif_EC.score_over_subjects, 95, axis=1),
                  np.percentile(datasetB.subject_classif_EC.score_over_subjects, 5, axis=1),
                  alpha=0.5, color='grey')
-plt.xlabel('# subjects')
-plt.ylabel('test-set accuracy')
+plt.xlabel('# subjects', fontsize=22)
+plt.ylabel('test-set accuracy', fontsize=22)
 fit_curves(xx=np.repeat(subj_n, 100), 
            yy=datasetB.subject_classif_EC.score_over_subjects.flatten(), extrapolate=1000)
 plt.xscale('log')

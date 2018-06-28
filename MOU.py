@@ -13,7 +13,7 @@ from sklearn.base import BaseEstimator
 import matplotlib.pyplot as pp
 from matplotlib.gridspec import GridSpec
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import ShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import StandardScaler, FunctionTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
@@ -347,7 +347,27 @@ class MOU(BaseEstimator):
             return self.d_fit['correlation']
         except:
             print('the model has not been fit yet. Call the fit method first.')
-            
+    
+    def loglikelihood(self, X, dt=1):
+        """
+        PARAMETERS:
+        X : data with shape [n_samples, n_rois]
+        dt : the time interval between two samples in X
+        """
+        c = self.model_covariance()
+        J = -np.eye(self.n_nodes)/self.tau_x + self.C
+        LAM = np.exp(J*dt)
+        n_samples = X.shape[0]
+        sig = c - np.dot(np.dot(LAM, c), LAM.T)
+        p11 = 0
+        for n in range(n_samples-1):
+            mu = np.dot(LAM, X[n, :].T)
+            p11 += np.log(stt.multivariate_normal.pdf(X[n+1, :], mean=mu, cov=sig))
+        self.loglik = p11 + np.log(stt.multivariate_normal.pdf(X[0, :],
+                                                               mean=np.zeros(self.n_nodes),
+                                                               cov=c))
+        return self.loglik
+
     def model_covariance(self, tau=0):
         """
         Calculates theoretical (lagged) covariances of the model given the parameters (forward step).
@@ -421,7 +441,7 @@ def make_rnd_connectivity(N, density=0.2, connectivity_strength=0.5):
     return C
 
 
-def classfy(X, y, zscore=False, pca=False):
+def classfy(X, y, zscore=False, pca=False, trn_sz=0.8):
     """
     Classify in X according to labels in y.
     PARAMETERS:
@@ -444,10 +464,10 @@ def classfy(X, y, zscore=False, pca=False):
     pipe = Pipeline([z, p, ('clf', clf)])
     repetitions = 100  # number of times the train/test split is repeated
     # shuffle splits for validation test accuracy
-    shS = ShuffleSplit(n_splits=repetitions, test_size=None, train_size=.8, random_state=0)
+    shS = StratifiedShuffleSplit(n_splits=repetitions, test_size=None, train_size=trn_sz, random_state=0)
     score = np.zeros([repetitions])
     i = 0  # counter for repetitions
-    for train_idx, test_idx in shS.split(X):  # repetitions loop
+    for train_idx, test_idx in shS.split(X, y=y):  # repetitions loop
         data_train = X[train_idx, :]
         y_train = y[train_idx]
         data_test = X[test_idx, :]
@@ -456,3 +476,9 @@ def classfy(X, y, zscore=False, pca=False):
         score[i] = pipe.score(data_test, y_test)
         i += 1
     return score
+
+
+
+model = MOU()
+X = model.simulate()
+ll = model.loglikelihood(X)

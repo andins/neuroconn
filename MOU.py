@@ -441,44 +441,6 @@ def make_rnd_connectivity(N, density=0.2, connectivity_strength=0.5):
     return C
 
 
-def classfy(X, y, zscore=False, pca=False, trn_sz=0.8):
-    """
-    Classify in X according to labels in y.
-    PARAMETERS:
-        X : data matrix shape [N, P] with samples on the rows
-        y : labels shape [N]
-        zscore : Bool turns z-score on or off
-        PCA : Bool turns PCA on or off
-    """
-    # classifier instantiation
-    clf = LogisticRegression(C=10000, penalty='l2', multi_class='multinomial', solver='lbfgs')
-    # corresponding pipeline: zscore and pca can be easily turned on or off
-    if zscore:
-        z = ('zscore', StandardScaler())
-    else:
-        z = ('identity_zscore', FunctionTransformer())
-    if pca:
-        p = ('PCA', PCA())
-    else:
-        p = ('identity_pca', FunctionTransformer())
-    pipe = Pipeline([z, p, ('clf', clf)])
-    repetitions = 100  # number of times the train/test split is repeated
-    # shuffle splits for validation test accuracy
-    shS = StratifiedShuffleSplit(n_splits=repetitions, test_size=None, train_size=trn_sz, random_state=0)
-    score = np.zeros([repetitions])
-    i = 0  # counter for repetitions
-    for train_idx, test_idx in shS.split(X, y=y):  # repetitions loop
-        data_train = X[train_idx, :]
-        y_train = y[train_idx]
-        data_test = X[test_idx, :]
-        y_test = y[test_idx]
-        pipe.fit(data_train, y_train)
-        score[i] = pipe.score(data_test, y_test)
-        i += 1
-    return score
-
-
-
 model = MOU()
 X = model.simulate()
 ll = model.loglikelihood(X)
